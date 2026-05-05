@@ -36,6 +36,14 @@ export const DropDownMenuData: DropDownMenuNode[] = [
                 onClick: () => store.dispatch(updateActivePopupType(PopupWindowType.IMPORT_IMAGES))
             },
             {
+                name: 'Import COCO Dataset (Single Folder)',
+                description: 'Load one image folder and one COCO file',
+                imageSrc: 'ico/import-labels.png',
+                imageAlt: 'import-coco-dataset',
+                disabled: false,
+                onClick: () => store.dispatch(updateActivePopupType(PopupWindowType.IMPORT_COCO_DATASET))
+            },
+            {
                 name: 'Import Annotations',
                 description: 'Import annotations from file',
                 imageSrc: 'ico/import-labels.png',

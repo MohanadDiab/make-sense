@@ -1,13 +1,18 @@
-import {ImageData} from '../store/labels/types';
+import {ImageData, ImageSourceType, TiffDisplayPreset} from '../store/labels/types';
 import { v4 as uuidv4 } from 'uuid';
 import {FileUtil} from './FileUtil';
 import {ImageRepository} from '../logic/imageRepository/ImageRepository';
+import {TIFFUtil} from './TIFFUtil';
 
 export class ImageDataUtil {
     public static createImageDataFromFileData(fileData: File): ImageData {
+        const isTiff = TIFFUtil.isTiffFile(fileData);
         return {
             id: uuidv4(),
             fileData,
+            sourceType: isTiff ? ImageSourceType.TIFF : ImageSourceType.STANDARD,
+            displayBands: isTiff ? [0, 1, 2] : undefined,
+            displayPreset: isTiff ? TiffDisplayPreset.RGB : undefined,
             loadStatus: false,
             labelRects: [],
             labelPoints: [],
@@ -41,8 +46,8 @@ export class ImageDataUtil {
     public static loadMissingImages(images: ImageData[]): Promise<void> {
         return new Promise((resolve, reject) => {
             const missingImages = images.filter((i: ImageData) => !i.loadStatus);
-            const missingImagesFiles = missingImages.map((i: ImageData) => i.fileData);
-            FileUtil.loadImages(missingImagesFiles)
+            const promises = missingImages.map((i: ImageData) => FileUtil.loadRenderableImage(i));
+            Promise.all(promises)
                 .then((htmlImageElements:HTMLImageElement[]) => {
                     ImageRepository.storeImages(missingImages.map((i: ImageData) => i.id), htmlImageElements);
                     resolve()

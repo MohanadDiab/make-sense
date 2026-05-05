@@ -24,7 +24,8 @@ interface IProps {
 const ImagesDropZone: React.FC<IProps> = (props: PropsWithChildren<IProps>) => {
     const {acceptedFiles, getRootProps, getInputProps} = useDropzone({
         accept: {
-            'image/*': ['.jpeg', '.png']
+            'image/*': ['.jpeg', '.jpg', '.png', '.tif', '.tiff'],
+            'image/tiff': ['.tif', '.tiff']
         }
     } as DropzoneOptions);
 

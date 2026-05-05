@@ -16,7 +16,8 @@ interface IProps {
 const LoadMoreImagesPopup: React.FC<IProps> = ({ addImageData }) => {
     const { acceptedFiles, getRootProps, getInputProps } = useDropzone({
         accept: {
-            'image/*': ['.jpeg', '.png']
+            'image/*': ['.jpeg', '.jpg', '.png', '.tif', '.tiff'],
+            'image/tiff': ['.tif', '.tiff']
         }
     });
 

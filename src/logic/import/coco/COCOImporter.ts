@@ -15,6 +15,7 @@ import {LabelType} from '../../../data/enums/LabelType';
 import {AnnotationImporter, ImportResult} from '../AnnotationImporter';
 import {COCOUtils} from './COCOUtils';
 import {Settings} from "../../../settings/Settings";
+import {FileUtil} from '../../../utils/FileUtil';
 
 export type FileNameCOCOIdMap = {[ fileName: string]: number; }
 export type LabelNameMap = { [labelCOCOId: number]: LabelName; }
@@ -28,23 +29,20 @@ export class COCOImporter extends AnnotationImporter {
         onSuccess: (imagesData: ImageData[], labelNames: LabelName[]) => any,
         onFailure: (error?:Error) => any
     ): void {
-        if (filesData.length > 1) {
-            onFailure(new COCOAnnotationFileCountError());
+        if (!filesData || filesData.length === 0) {
+            onFailure(new COCOAnnotationReadingError());
+            return;
         }
 
-        const reader = new FileReader();
-        reader.readAsText(filesData[0]);
-        reader.onloadend = (evt: any) => {
-            try {
+        FileUtil.readFiles(filesData)
+            .then((texts: string[]) => {
+                const cocoObjects = texts.map((text: string) => COCOImporter.deserialize(text));
+                const merged = COCOImporter.mergeCocoObjects(cocoObjects);
                 const inputImagesData: ImageData[] = LabelsSelector.getImagesData();
-                const annotations = COCOImporter.deserialize(evt.target.result)
-                const {imagesData, labelNames} = this.applyLabels(inputImagesData, annotations);
-                onSuccess(imagesData,labelNames);
-            } catch (error) {
-                onFailure(error as Error);
-            }
-        };
-        reader.onerror = () => onFailure(new COCOAnnotationReadingError());
+                const {imagesData, labelNames} = this.applyLabels(inputImagesData, merged);
+                onSuccess(imagesData, labelNames);
+            })
+            .catch((error: Error) => onFailure(error));
     }
 
     public static deserialize(text: string): COCOObject {
@@ -68,18 +66,22 @@ export class COCOImporter extends AnnotationImporter {
                 continue
 
             if (this.labelType.includes(LabelType.RECT)) {
-                imageDataMap[annotation.image_id].labelRects.push(LabelUtil.createLabelRect(
-                    labelNameMap[annotation.category_id].id,
-                    COCOUtils.bbox2rect(annotation.bbox)
-                ))
+                if (Array.isArray(annotation.bbox) && annotation.bbox.length >= 4 && labelNameMap[annotation.category_id]) {
+                    imageDataMap[annotation.image_id].labelRects.push(LabelUtil.createLabelRect(
+                        labelNameMap[annotation.category_id].id,
+                        COCOUtils.bbox2rect(annotation.bbox)
+                    ))
+                }
             }
 
             if (this.labelType.includes(LabelType.POLYGON)) {
-                const polygons = COCOUtils.segmentation2vertices(annotation.segmentation);
-                for (const polygon of polygons) {
-                    imageDataMap[annotation.image_id].labelPolygons.push(LabelUtil.createLabelPolygon(
-                        labelNameMap[annotation.category_id].id, polygon
-                    ))
+                if (Array.isArray(annotation.segmentation) && labelNameMap[annotation.category_id]) {
+                    const polygons = COCOUtils.segmentation2vertices(annotation.segmentation);
+                    for (const polygon of polygons) {
+                        imageDataMap[annotation.image_id].labelPolygons.push(LabelUtil.createLabelPolygon(
+                            labelNameMap[annotation.category_id].id, polygon
+                        ))
+                    }
                 }
             }
         }
@@ -93,8 +95,8 @@ export class COCOImporter extends AnnotationImporter {
     }
 
     protected static partitionImageData(items: ImageData[], images: COCOImage[]): PartitionResult<ImageData> {
-        const imageNames: string[] = images.map((item: COCOImage) => item.file_name);
-        const predicate = (item: ImageData) => imageNames.includes(item.fileData.name);
+        const imageNames: string[] = images.map((item: COCOImage) => COCOImporter.normalizeFileName(item.file_name));
+        const predicate = (item: ImageData) => imageNames.includes(COCOImporter.normalizeFileName(item.fileData.name));
         return ArrayUtil.partition<ImageData>(items, predicate);
     }
 
@@ -111,11 +113,14 @@ export class COCOImporter extends AnnotationImporter {
 
     protected static mapImageData(items: ImageData[], images: COCOImage[]): ImageDataMap {
         const fileNameCOCOIdMap: FileNameCOCOIdMap = images.reduce((acc: FileNameCOCOIdMap, image: COCOImage) => {
-            acc[image.file_name] = image.id
+            acc[COCOImporter.normalizeFileName(image.file_name)] = image.id
             return acc
         }, {});
         return  items.reduce((acc: ImageDataMap, image: ImageData) => {
-            acc[fileNameCOCOIdMap[image.fileData.name]] = image
+            const cocoId = fileNameCOCOIdMap[COCOImporter.normalizeFileName(image.fileData.name)];
+            if (cocoId !== undefined) {
+                acc[cocoId] = image
+            }
             return acc;
         }, {});
     }
@@ -125,5 +130,86 @@ export class COCOImporter extends AnnotationImporter {
         if (missingKeys.length !== 0) {
             throw new COCOFormatValidationError(`Uploaded file does not contain all required keys: ${missingKeys}`)
         }
+    }
+
+    private static normalizeFileName(fileName: string): string {
+        const normalizedSlashes = `${fileName || ''}`.trim().replace(/\\/g, '/');
+        const baseName = normalizedSlashes.split('/').pop() || normalizedSlashes;
+        return baseName.toLowerCase();
+    }
+
+    private static mergeCocoObjects(objects: COCOObject[]): COCOObject {
+        if (!objects.length) {
+            throw new COCOAnnotationFileCountError();
+        }
+
+        // Merge strategy:
+        // - canonical categories keyed by name (case-insensitive)
+        // - canonical images keyed by normalized file_name (basename lowercased)
+        // - remap each file’s annotation.image_id and annotation.category_id into canonical ids
+        const categoryNameToId = new Map<string, number>();
+        const categories: COCOCategory[] = [];
+        const imageNameToId = new Map<string, number>();
+        const images: COCOImage[] = [];
+        const annotations: any[] = [];
+
+        let nextCategoryId = 1;
+        let nextImageId = 1;
+        let nextAnnotationId = 1;
+
+        for (const obj of objects) {
+            COCOImporter.validateCocoFormat(obj);
+
+            const catIdMap = new Map<number, number>();
+            for (const cat of (obj.categories || [])) {
+                const key = `${cat.name || ''}`.trim().toLowerCase();
+                let canonicalId = categoryNameToId.get(key);
+                if (!canonicalId) {
+                    canonicalId = nextCategoryId++;
+                    categoryNameToId.set(key, canonicalId);
+                    categories.push({id: canonicalId, name: cat.name});
+                }
+                catIdMap.set(cat.id, canonicalId);
+            }
+
+            const imageIdMap = new Map<number, number>();
+            for (const img of (obj.images || [])) {
+                const normalizedName = COCOImporter.normalizeFileName(img.file_name);
+                let canonicalImageId = imageNameToId.get(normalizedName);
+                if (!canonicalImageId) {
+                    canonicalImageId = nextImageId++;
+                    imageNameToId.set(normalizedName, canonicalImageId);
+                    images.push({
+                        id: canonicalImageId,
+                        width: img.width,
+                        height: img.height,
+                        file_name: img.file_name,
+                    });
+                }
+                imageIdMap.set(img.id, canonicalImageId);
+            }
+
+            for (const ann of (obj.annotations || [])) {
+                const canonicalImageId = imageIdMap.get(ann.image_id);
+                const canonicalCategoryId = catIdMap.get(ann.category_id);
+                if (!canonicalImageId || !canonicalCategoryId) {
+                    continue;
+                }
+                annotations.push({
+                    ...ann,
+                    id: nextAnnotationId++,
+                    image_id: canonicalImageId,
+                    category_id: canonicalCategoryId,
+                });
+            }
+        }
+
+        return {
+            // keep first info if present, but it’s not used by importer
+            info: objects[0].info,
+            images,
+            annotations,
+            categories,
+        } as COCOObject;
     }
 }

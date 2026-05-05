@@ -21,7 +21,7 @@ export type COCOAnnotation = {
     id: number;
     category_id: number;
     iscrowd: number;
-    segmentation: COCOSegmentation;
+    segmentation?: COCOSegmentation;
     image_id: number;
     area: number;
     bbox: COCOBBox;

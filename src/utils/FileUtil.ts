@@ -1,4 +1,16 @@
 
+import {ImageData, ImageSourceType} from '../store/labels/types';
+import {TIFFUtil} from './TIFFUtil';
+
+export type RenderableImageResult = {
+    image: HTMLImageElement;
+    rasterMeta?: {
+        width: number;
+        height: number;
+        bandCount: number;
+    };
+}
+
 export class FileUtil {
     public static loadImageBase64(fileData: File): Promise<string | ArrayBuffer> {
         return new Promise((resolve, reject) => {
@@ -27,6 +39,29 @@ export class FileUtil {
                 .then((values: HTMLImageElement[]) => resolve(values))
                 .catch((error) => reject(error));
         });
+    }
+
+    public static async loadRenderableImageWithMeta(imageData: ImageData): Promise<RenderableImageResult> {
+        if (imageData.sourceType === ImageSourceType.TIFF || TIFFUtil.isTiffFile(imageData.fileData)) {
+            const decoded = await TIFFUtil.decodeToImage(imageData.fileData, imageData.displayBands);
+            return {
+                image: decoded.image,
+                rasterMeta: {
+                    width: decoded.width,
+                    height: decoded.height,
+                    bandCount: decoded.bandCount
+                }
+            };
+        }
+        const image = await FileUtil.loadImage(imageData.fileData);
+        return {
+            image
+        };
+    }
+
+    public static async loadRenderableImage(imageData: ImageData): Promise<HTMLImageElement> {
+        const result = await FileUtil.loadRenderableImageWithMeta(imageData);
+        return result.image;
     }
 
     public static readFile(fileData: File): Promise<string> {

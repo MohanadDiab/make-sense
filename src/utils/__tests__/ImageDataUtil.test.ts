@@ -1,4 +1,4 @@
-import { ImageData } from '../../store/labels/types';
+import { ImageData, ImageSourceType, TiffDisplayPreset } from '../../store/labels/types';
 import { v4 as uuidv4 } from 'uuid';
 import { LabelUtil } from '../LabelUtil';
 import { ImageDataUtil } from '../ImageDataUtil';
@@ -55,5 +55,27 @@ describe('ImageDataUtil arrange method', () => {
 
         // then
         expect(JSON.stringify(expectedIdArrangement)).toBe(JSON.stringify(resultIdArrangement));
+    });
+});
+
+describe('ImageDataUtil createImageDataFromFileData method', () => {
+    it('sets TIFF defaults for .tif files', () => {
+        const fileData = new File([''], 'aerial_scene.tif', { type: 'image/tiff' });
+
+        const result = ImageDataUtil.createImageDataFromFileData(fileData);
+
+        expect(result.sourceType).toBe(ImageSourceType.TIFF);
+        expect(result.displayPreset).toBe(TiffDisplayPreset.RGB);
+        expect(result.displayBands).toEqual([0, 1, 2]);
+    });
+
+    it('sets standard defaults for png files', () => {
+        const fileData = new File([''], 'photo.png', { type: 'image/png' });
+
+        const result = ImageDataUtil.createImageDataFromFileData(fileData);
+
+        expect(result.sourceType).toBe(ImageSourceType.STANDARD);
+        expect(result.displayPreset).toBeUndefined();
+        expect(result.displayBands).toBeUndefined();
     });
 });

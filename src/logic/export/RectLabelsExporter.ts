@@ -12,6 +12,7 @@ import {ISize} from '../../interfaces/ISize';
 import {NumberUtil} from '../../utils/NumberUtil';
 import {RectUtil} from '../../utils/RectUtil';
 import {Settings} from '../../settings/Settings';
+import {CocoManualAutosave} from '../autosave/CocoManualAutosave';
 
 export class RectLabelsExporter {
     public static export(exportFormatType: AnnotationFormatType): void {
@@ -22,12 +23,39 @@ export class RectLabelsExporter {
             case AnnotationFormatType.VOC:
                 RectLabelsExporter.exportAsVOC();
                 break;
+            case AnnotationFormatType.COCO:
+                RectLabelsExporter.exportAsCOCOManual();
+                break;
             case AnnotationFormatType.CSV:
                 RectLabelsExporter.exportAsCSV();
                 break;
             default:
                 return;
         }
+    }
+
+    private static exportAsCOCOManual(): void {
+        // If a COCO folder project is loaded, we want to export to *_manual.json "next to" the dataset file.
+        // In browsers this requires the user to choose the save target once (File System Access API).
+        CocoManualAutosave.exportManualFile()
+            .then((didWrite: boolean) => {
+                if (didWrite) {
+                    return;
+                }
+                const content = CocoManualAutosave.buildManualCocoJson();
+                if (!content) {
+                    return;
+                }
+                const fileName = CocoManualAutosave.getManualFileNameIfEnabled() || `${ExporterUtil.getExportFileName()}_manual.json`;
+                ExporterUtil.saveAs(content, fileName);
+            })
+            .catch(() => {
+                const content = CocoManualAutosave.buildManualCocoJson();
+                if (content) {
+                    const fileName = CocoManualAutosave.getManualFileNameIfEnabled() || `${ExporterUtil.getExportFileName()}_manual.json`;
+                    ExporterUtil.saveAs(content, fileName);
+                }
+            });
     }
 
     private static exportAsYOLO(): void {

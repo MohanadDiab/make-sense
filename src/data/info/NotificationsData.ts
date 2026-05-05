@@ -57,5 +57,9 @@ export const NotificationsDataMap: ExportFormatDataMap = {
         header: 'Roboflow connection failed',
         description: 'Looks like we ware unable to connect to your Roboflow model. Please, make sure that the model ' +
             'specification and Roboflow API key, are correct.'
+    },
+    [Notification.GEOREFERENCING_EXTERNAL_INFO]: {
+        header: 'Geospatial export is out of scope',
+        description: 'This project supports labeling imagery that may include geospatial metadata, but annotations are exported in standard non-georeferenced formats. Georeferencing should be handled in a downstream post-processing step.'
     }
 }

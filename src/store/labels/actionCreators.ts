@@ -1,4 +1,4 @@
-import {LabelsActionTypes, ImageData, LabelName} from './types';
+import {DualViewSyncConflictPolicy, DualViewSyncDirection, LabelsActionTypes, ImageData, LabelName} from './types';
 import {Action} from '../Actions';
 import {LabelType} from '../../data/enums/LabelType';
 
@@ -89,6 +89,42 @@ export function updateFirstLabelCreatedFlag(firstLabelCreatedFlag: boolean): Lab
         type: Action.UPDATE_FIRST_LABEL_CREATED_FLAG,
         payload: {
             firstLabelCreatedFlag
+        }
+    }
+}
+
+export function updateDualViewEnabled(dualViewEnabled: boolean): LabelsActionTypes {
+    return {
+        type: Action.UPDATE_DUAL_VIEW_ENABLED,
+        payload: {
+            dualViewEnabled
+        }
+    }
+}
+
+export function updateDualViewSyncEnabled(dualViewSyncEnabled: boolean): LabelsActionTypes {
+    return {
+        type: Action.UPDATE_DUAL_VIEW_SYNC_ENABLED,
+        payload: {
+            dualViewSyncEnabled
+        }
+    }
+}
+
+export function updateDualViewSyncDirection(dualViewSyncDirection: DualViewSyncDirection): LabelsActionTypes {
+    return {
+        type: Action.UPDATE_DUAL_VIEW_SYNC_DIRECTION,
+        payload: {
+            dualViewSyncDirection
+        }
+    }
+}
+
+export function updateDualViewSyncConflictPolicy(dualViewSyncConflictPolicy: DualViewSyncConflictPolicy): LabelsActionTypes {
+    return {
+        type: Action.UPDATE_DUAL_VIEW_SYNC_CONFLICT_POLICY,
+        payload: {
+            dualViewSyncConflictPolicy
         }
     }
 }

@@ -15,6 +15,7 @@ import ExportLabelPopup from './ExportLabelsPopup/ExportLabelPopup';
 import LoadModelPopup from './LoadModelPopup/LoadModelPopup';
 import LoadYOLOv5ModelPopup from './LoadYOLOv5ModelPopup/LoadYOLOv5ModelPopup';
 import ConnectInferenceServerPopup from './ConnectInferenceServerPopup/ConnectInferenceServerPopup';
+import LoadCocoDatasetPopup from './LoadCocoDatasetPopup/LoadCocoDatasetPopup';
 
 interface IProps {
     activePopupType: PopupWindowType;
@@ -42,6 +43,8 @@ const PopupView: React.FC<IProps> = ({ activePopupType }) => {
                 return <ExitProjectPopup />;
             case PopupWindowType.IMPORT_IMAGES:
                 return <LoadMoreImagesPopup />;
+            case PopupWindowType.IMPORT_COCO_DATASET:
+                return <LoadCocoDatasetPopup />;
             case PopupWindowType.LOAD_AI_MODEL:
                 return <LoadModelPopup />;
             case PopupWindowType.LOAD_YOLO_V5_MODEL:

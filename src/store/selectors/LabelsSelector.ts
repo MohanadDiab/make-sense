@@ -48,6 +48,18 @@ export class LabelsSelector {
         return find(imagesData, {id});
     }
 
+    public static isDualViewEnabled(): boolean {
+        return store.getState().labels.dualViewEnabled;
+    }
+
+    public static isDualViewSyncEnabled(): boolean {
+        return store.getState().labels.dualViewSyncEnabled;
+    }
+
+    public static getPairedImageId(imageId: string): string | null {
+        return store.getState().labels.imagePairById[imageId] || null;
+    }
+
     public static getActiveLabelId(): string | null {
         return store.getState().labels.activeLabelId;
     }

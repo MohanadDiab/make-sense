@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {connect} from 'react-redux';
 import {Direction} from '../../../data/enums/Direction';
 import {ISize} from '../../../interfaces/ISize';
@@ -16,11 +16,16 @@ import {ContextType} from '../../../data/enums/ContextType';
 import EditorBottomNavigationBar from '../EditorBottomNavigationBar/EditorBottomNavigationBar';
 import EditorTopNavigationBar from '../EditorTopNavigationBar/EditorTopNavigationBar';
 import {ProjectType} from '../../../data/enums/ProjectType';
+import {updateActiveImageIndex} from '../../../store/labels/actionCreators';
+import {CocoManualAutosave} from '../../../logic/autosave/CocoManualAutosave';
 
 interface IProps {
     windowSize: ISize;
     activeImageIndex: number;
     imagesData: ImageData[];
+    imagePairById: {[imageId: string]: string};
+    dualViewEnabled: boolean;
+    updateActiveImageIndexAction: (activeImageIndex: number) => any;
     activeContext: ContextType;
     projectType: ProjectType;
 }
@@ -30,11 +35,19 @@ const EditorContainer: React.FC<IProps> = (
         windowSize,
         activeImageIndex,
         imagesData,
+        imagePairById,
+        dualViewEnabled,
+        updateActiveImageIndexAction,
         activeContext,
         projectType
     }) => {
     const [leftTabStatus, setLeftTabStatus] = useState(true);
     const [rightTabStatus, setRightTabStatus] = useState(true);
+
+    useEffect(() => {
+        // Save immediately when user navigates between images.
+        CocoManualAutosave.flush('image_change').catch(() => null);
+    }, [activeImageIndex]);
 
     const calculateEditorSize = (): ISize => {
         if (windowSize) {
@@ -100,6 +113,12 @@ const EditorContainer: React.FC<IProps> = (
         return <LabelsToolkit/>
     };
 
+    const activeImageData = imagesData[activeImageIndex];
+    const pairedImageId = activeImageData ? imagePairById[activeImageData.id] : null;
+    const pairedImageData = pairedImageId ? imagesData.find((imageData: ImageData) => imageData.id === pairedImageId) : null;
+    const pairedImageIndex = pairedImageData ? imagesData.findIndex((imageData: ImageData) => imageData.id === pairedImageData.id) : -1;
+    const isDualViewActive = dualViewEnabled && !!pairedImageData;
+
     return (
         <div className='EditorContainer'>
             <SideNavigationBar
@@ -110,18 +129,37 @@ const EditorContainer: React.FC<IProps> = (
                 renderContent={leftSideBarRender}
                 key='left-side-navigation-bar'
             />
-            <div className='EditorWrapper'
+            <div className={isDualViewActive ? 'EditorWrapper dual' : 'EditorWrapper'}
                 onMouseDown={() => ContextManager.switchCtx(ContextType.EDITOR)}
                  key='editor-wrapper'
             >
                 {projectType === ProjectType.OBJECT_DETECTION && <EditorTopNavigationBar
                     key='editor-top-navigation-bar'
                 />}
-                <Editor
+                {!isDualViewActive && <Editor
                     size={calculateEditorSize()}
                     imageData={imagesData[activeImageIndex]}
+                    editorKey='primary'
                     key='editor'
-                />
+                />}
+                {isDualViewActive && <div className='DualEditors'>
+                    <div className='EditorPane' onMouseDown={() => updateActiveImageIndexAction(activeImageIndex)}>
+                        <Editor
+                            size={{width: Math.floor(calculateEditorSize().width / 2), height: calculateEditorSize().height}}
+                            imageData={imagesData[activeImageIndex]}
+                            editorKey='primary'
+                            key='editor-primary'
+                        />
+                    </div>
+                    <div className='EditorPane' onMouseDown={() => pairedImageIndex >= 0 && updateActiveImageIndexAction(pairedImageIndex)}>
+                        <Editor
+                            size={{width: Math.floor(calculateEditorSize().width / 2), height: calculateEditorSize().height}}
+                            imageData={pairedImageData}
+                            editorKey='linked'
+                            key='editor-linked'
+                        />
+                    </div>
+                </div>}
                 <EditorBottomNavigationBar
                     imageData={imagesData[activeImageIndex]}
                     size={calculateEditorSize()}
@@ -145,10 +183,17 @@ const mapStateToProps = (state: AppState) => ({
     windowSize: state.general.windowSize,
     activeImageIndex: state.labels.activeImageIndex,
     imagesData: state.labels.imagesData,
+    imagePairById: state.labels.imagePairById,
+    dualViewEnabled: state.labels.dualViewEnabled,
     activeContext: state.general.activeContext,
     projectType: state.general.projectData.type
 });
 
+const mapDispatchToProps = {
+    updateActiveImageIndexAction: updateActiveImageIndex
+};
+
 export default connect(
-    mapStateToProps
+    mapStateToProps,
+    mapDispatchToProps
 )(EditorContainer);

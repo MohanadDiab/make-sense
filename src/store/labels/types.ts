@@ -39,9 +39,41 @@ export type LabelName = {
     color?: string;
 }
 
+export enum ImageSourceType {
+    STANDARD = 'standard',
+    TIFF = 'tiff'
+}
+
+export type ImageRasterMeta = {
+    width: number;
+    height: number;
+    bandCount: number;
+}
+
+export enum TiffDisplayPreset {
+    CUSTOM = 'custom',
+    RGB = 'rgb',
+    BAND_12 = 'band_12',
+    BAND_14 = 'band_14',
+    NRG = 'nrg'
+}
+
+export enum DualViewSyncDirection {
+    ACTIVE_TO_LINKED = 'active_to_linked',
+    BIDIRECTIONAL = 'bidirectional'
+}
+
+export enum DualViewSyncConflictPolicy {
+    LAST_WRITE_WINS = 'last_write_wins'
+}
+
 export type ImageData = {
     id: string;
     fileData: File;
+    sourceType?: ImageSourceType;
+    rasterMeta?: ImageRasterMeta;
+    displayBands?: number[];
+    displayPreset?: TiffDisplayPreset;
     loadStatus: boolean;
     labelRects: LabelRect[];
     labelPoints: LabelPoint[];
@@ -69,6 +101,16 @@ export type LabelsState = {
     activeLabelId: string | null;
     highlightedLabelId: string;
     imagesData: ImageData[];
+    /**
+     * Monotonically increasing revision for any annotation changes.
+     * Used for autosave and "dirty" detection.
+     */
+    annotationsRevision: number;
+    imagePairById: {[imageId: string]: string};
+    dualViewEnabled: boolean;
+    dualViewSyncEnabled: boolean;
+    dualViewSyncDirection: DualViewSyncDirection;
+    dualViewSyncConflictPolicy: DualViewSyncConflictPolicy;
     firstLabelCreatedFlag: boolean;
     labels: LabelName[];
 }
@@ -144,6 +186,34 @@ interface UpdateFirstLabelCreatedFlag {
     }
 }
 
+interface UpdateDualViewEnabled {
+    type: typeof Action.UPDATE_DUAL_VIEW_ENABLED;
+    payload: {
+        dualViewEnabled: boolean;
+    }
+}
+
+interface UpdateDualViewSyncEnabled {
+    type: typeof Action.UPDATE_DUAL_VIEW_SYNC_ENABLED;
+    payload: {
+        dualViewSyncEnabled: boolean;
+    }
+}
+
+interface UpdateDualViewSyncDirection {
+    type: typeof Action.UPDATE_DUAL_VIEW_SYNC_DIRECTION;
+    payload: {
+        dualViewSyncDirection: DualViewSyncDirection;
+    }
+}
+
+interface UpdateDualViewSyncConflictPolicy {
+    type: typeof Action.UPDATE_DUAL_VIEW_SYNC_CONFLICT_POLICY;
+    payload: {
+        dualViewSyncConflictPolicy: DualViewSyncConflictPolicy;
+    }
+}
+
 export type LabelsActionTypes = UpdateActiveImageIndex
     | UpdateActiveLabelNameId
     | UpdateActiveLabelType
@@ -154,4 +224,8 @@ export type LabelsActionTypes = UpdateActiveImageIndex
     | UpdateActiveLabelId
     | UpdateHighlightedLabelId
     | UpdateFirstLabelCreatedFlag
+    | UpdateDualViewEnabled
+    | UpdateDualViewSyncEnabled
+    | UpdateDualViewSyncDirection
+    | UpdateDualViewSyncConflictPolicy
 

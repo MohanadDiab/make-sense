@@ -1,8 +1,8 @@
 import React from 'react';
 import './Editor.scss';
 import {ISize} from '../../../interfaces/ISize';
-import {ImageData, LabelPoint, LabelRect} from '../../../store/labels/types';
-import {FileUtil} from '../../../utils/FileUtil';
+import {ImageData, LabelPoint, LabelRect, TiffDisplayPreset} from '../../../store/labels/types';
+import {FileUtil, RenderableImageResult} from '../../../utils/FileUtil';
 import {AppState} from '../../../store';
 import {connect} from 'react-redux';
 import {updateImageDataById} from '../../../store/labels/actionCreators';
@@ -30,6 +30,7 @@ import {isEqual} from 'lodash';
 import {AIActions} from '../../../logic/actions/AIActions';
 
 interface IProps {
+    editorKey?: string;
     size: ISize;
     imageData: ImageData;
     activeLabelType: LabelType;
@@ -46,7 +47,6 @@ interface IState {
 }
 
 class Editor extends React.Component<IProps, IState> {
-
     constructor(props) {
         super(props);
         this.state = {
@@ -62,6 +62,7 @@ class Editor extends React.Component<IProps, IState> {
     // =================================================================================================================
 
     public componentDidMount(): void {
+        EditorModel.activate(this.props.editorKey || 'primary');
         this.mountEventListeners();
 
         const {imageData, activeLabelType} = this.props;
@@ -77,9 +78,12 @@ class Editor extends React.Component<IProps, IState> {
     }
 
     public componentDidUpdate(prevProps: Readonly<IProps>, prevState: Readonly<{}>, snapshot?: any): void {
+        EditorModel.activate(this.props.editorKey || 'primary');
         const {imageData, activeLabelType} = this.props;
 
-        prevProps.imageData.id !== imageData.id && ImageLoadManager.addAndRun(this.loadImage(imageData));
+        const hasDisplayBandChanged = !isEqual(prevProps.imageData.displayBands, imageData.displayBands);
+        const shouldForceReload = prevProps.imageData.id === imageData.id && hasDisplayBandChanged;
+        (prevProps.imageData.id !== imageData.id || shouldForceReload) && ImageLoadManager.addAndRun(this.loadImage(imageData, shouldForceReload));
 
         if (prevProps.activeLabelType !== activeLabelType) {
             EditorActions.swapSupportRenderingEngine(activeLabelType);
@@ -94,6 +98,7 @@ class Editor extends React.Component<IProps, IState> {
     // =================================================================================================================
 
     private mountEventListeners() {
+        EditorModel.activate(this.props.editorKey || 'primary');
         window.addEventListener(EventType.MOUSE_MOVE, this.update);
         window.addEventListener(EventType.MOUSE_UP, this.update);
         EditorModel.canvas.addEventListener(EventType.MOUSE_DOWN, this.update);
@@ -101,6 +106,7 @@ class Editor extends React.Component<IProps, IState> {
     }
 
     private unmountEventListeners() {
+        EditorModel.activate(this.props.editorKey || 'primary');
         window.removeEventListener(EventType.MOUSE_MOVE, this.update);
         window.removeEventListener(EventType.MOUSE_UP, this.update);
         EditorModel.canvas.removeEventListener(EventType.MOUSE_DOWN, this.update);
@@ -111,8 +117,9 @@ class Editor extends React.Component<IProps, IState> {
     // LOAD IMAGE
     // =================================================================================================================
 
-    private loadImage = async (imageData: ImageData): Promise<any> => {
-        if (imageData.loadStatus) {
+    private loadImage = async (imageData: ImageData, forceReload: boolean = false): Promise<any> => {
+        EditorModel.activate(this.props.editorKey || 'primary');
+        if (imageData.loadStatus && !forceReload) {
             EditorActions.setActiveImage(ImageRepository.getById(imageData.id));
             AIActions.detect(imageData.id, ImageRepository.getById(imageData.id));
             this.updateModelAndRender()
@@ -120,17 +127,31 @@ class Editor extends React.Component<IProps, IState> {
         else {
             if (!EditorModel.isLoading) {
                 EditorActions.setLoadingStatus(true);
-                const saveLoadedImagePartial = (image: HTMLImageElement) => this.saveLoadedImage(image, imageData);
-                FileUtil.loadImage(imageData.fileData)
-                    .then((image:HTMLImageElement) => saveLoadedImagePartial(image))
+                const saveLoadedImagePartial = (result: RenderableImageResult) => this.saveLoadedImage(result.image, imageData, result.rasterMeta);
+                FileUtil.loadRenderableImageWithMeta(imageData)
+                    .then((result: RenderableImageResult) => saveLoadedImagePartial(result))
                     .catch((error) => this.handleLoadImageError())
             }
         }
     };
 
-    private saveLoadedImage = (image: HTMLImageElement, imageData: ImageData) => {
-        imageData.loadStatus = true;
-        this.props.updateImageDataById(imageData.id, imageData);
+    private saveLoadedImage = (image: HTMLImageElement, imageData: ImageData, rasterMeta?: { width: number; height: number; bandCount: number }) => {
+        EditorModel.activate(this.props.editorKey || 'primary');
+        const normalizedBands = rasterMeta
+            ? (imageData.displayBands || [])
+                .filter((band: number) => band >= 0 && band < rasterMeta.bandCount)
+                .slice(0, 4)
+            : imageData.displayBands;
+        const nextImageData: ImageData = {
+            ...imageData,
+            loadStatus: true,
+            rasterMeta: rasterMeta ? rasterMeta : imageData.rasterMeta,
+            displayBands: rasterMeta
+                ? (normalizedBands.length ? normalizedBands : [...Array(Math.min(3, rasterMeta.bandCount || 1)).keys()])
+                : imageData.displayBands,
+            displayPreset: imageData.displayPreset || TiffDisplayPreset.CUSTOM
+        };
+        this.props.updateImageDataById(imageData.id, nextImageData);
         ImageRepository.storeImage(imageData.id, image);
         EditorActions.setActiveImage(image);
         AIActions.detect(imageData.id, image);
@@ -145,6 +166,7 @@ class Editor extends React.Component<IProps, IState> {
     // =================================================================================================================
 
     private updateModelAndRender = () => {
+        EditorModel.activate(this.props.editorKey || 'primary');
         ViewPortActions.updateViewPortSize();
         ViewPortActions.updateDefaultViewPortImageRect();
         ViewPortActions.resizeViewPortContent();
@@ -152,6 +174,7 @@ class Editor extends React.Component<IProps, IState> {
     };
 
     private update = (event: MouseEvent) => {
+        EditorModel.activate(this.props.editorKey || 'primary');
         const editorData: EditorData = EditorActions.getEditorData(event);
         EditorModel.mousePositionOnViewPortContent = CanvasUtil.getMousePositionOnCanvasFromEvent(event, EditorModel.canvas);
         EditorModel.primaryRenderingEngine.update(editorData);
@@ -167,6 +190,7 @@ class Editor extends React.Component<IProps, IState> {
     };
 
     private handleZoom = (event: WheelEvent) => {
+        EditorModel.activate(this.props.editorKey || 'primary');
         if (event.ctrlKey || (PlatformModel.isMac && event.metaKey)) {
             const scrollSign: number = Math.sign(event.deltaY);
             if ((PlatformModel.isMac && scrollSign === -1) || (!PlatformModel.isMac && scrollSign === 1)) {
@@ -180,6 +204,7 @@ class Editor extends React.Component<IProps, IState> {
     };
 
     private getOptionsPanels = () => {
+        EditorModel.activate(this.props.editorKey || 'primary');
         const editorData: EditorData = EditorActions.getEditorData();
         if (this.props.activeLabelType === LabelType.RECT) {
             return this.props.imageData.labelRects
@@ -213,6 +238,7 @@ class Editor extends React.Component<IProps, IState> {
     };
 
     private onScrollbarsUpdate = (scrollbarContent)=>{
+        EditorModel.activate(this.props.editorKey || 'primary');
         const newViewPortContentSize = {
             width: scrollbarContent.scrollWidth,
             height: scrollbarContent.scrollHeight
@@ -226,11 +252,17 @@ class Editor extends React.Component<IProps, IState> {
         return (
             <div
                 className='Editor'
-                ref={ref => EditorModel.editor = ref}
+                ref={ref => {
+                    EditorModel.activate(this.props.editorKey || 'primary');
+                    EditorModel.editor = ref;
+                }}
                 draggable={false}
             >
                 <Scrollbars
-                    ref={ref => EditorModel.viewPortScrollbars = ref}
+                    ref={ref => {
+                        EditorModel.activate(this.props.editorKey || 'primary');
+                        EditorModel.viewPortScrollbars = ref;
+                    }}
                     renderTrackHorizontal={props => <div {...props} className='track-horizontal'/>}
                     renderTrackVertical={props => <div {...props} className='track-vertical'/>}
                     onUpdate={this.onScrollbarsUpdate}
@@ -240,7 +272,10 @@ class Editor extends React.Component<IProps, IState> {
                     >
                         <canvas
                             className='ImageCanvas'
-                            ref={ref => EditorModel.canvas = ref}
+                            ref={ref => {
+                                EditorModel.activate(this.props.editorKey || 'primary');
+                                EditorModel.canvas = ref;
+                            }}
                             draggable={false}
                             onContextMenu={(event: React.MouseEvent<HTMLCanvasElement>) => event.preventDefault()}
                         />
@@ -249,12 +284,18 @@ class Editor extends React.Component<IProps, IState> {
                 </Scrollbars>
                 <div
                     className='MousePositionIndicator'
-                    ref={ref => EditorModel.mousePositionIndicator = ref}
+                    ref={ref => {
+                        EditorModel.activate(this.props.editorKey || 'primary');
+                        EditorModel.mousePositionIndicator = ref;
+                    }}
                     draggable={false}
                 />
                 <div
                     className={EditorUtil.getCursorStyle(this.props.customCursorStyle)}
-                    ref={ref => EditorModel.cursor = ref}
+                    ref={ref => {
+                        EditorModel.activate(this.props.editorKey || 'primary');
+                        EditorModel.cursor = ref;
+                    }}
                     draggable={false}
                 >
                     <img

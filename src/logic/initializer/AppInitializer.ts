@@ -6,6 +6,7 @@ import {PlatformModel} from '../../staticModels/PlatformModel';
 import {EventType} from '../../data/enums/EventType';
 import {GeneralSelector} from '../../store/selectors/GeneralSelector';
 import {EnvironmentUtil} from '../../utils/EnvironmentUtil';
+import {CocoManualAutosave} from '../autosave/CocoManualAutosave';
 
 export class AppInitializer {
     public static inti():void {
@@ -22,7 +23,7 @@ export class AppInitializer {
     private static handleAccidentalPageExit = () => {
         window.onbeforeunload = (event) => {
             const projectType = GeneralSelector.getProjectType();
-            if (projectType != null && EnvironmentUtil.isProd()) {
+            if (projectType != null && CocoManualAutosave.shouldWarnOnExit()) {
                 event.preventDefault();
                 event.returnValue = '';
             }

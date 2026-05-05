@@ -8,6 +8,7 @@ import {ISize} from "../../../interfaces/ISize";
 import {ContextType} from "../../../data/enums/ContextType";
 import classNames from "classnames";
 import {ImageActions} from "../../../logic/actions/ImageActions";
+import {FileDisplayUtil} from '../../../utils/FileDisplayUtil';
 
 interface IProps {
     size: ISize;
@@ -44,7 +45,7 @@ const EditorBottomNavigationBar: React.FC<IProps> = ({size, imageData, totalImag
                 externalClassName={"left"}
             />
             {size.width > minWidth ?
-                <div className="CurrentImageName"> {imageData.fileData.name} </div> :
+                <div className="CurrentImageName"> {FileDisplayUtil.getShortDisplayName(imageData.fileData)} </div> :
                 <div className="CurrentImageCount"> {getImageCounter()} </div>
             }
             <ImageButton
