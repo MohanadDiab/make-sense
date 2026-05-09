@@ -1,3 +1,4 @@
+import path from 'path';
 import {
   defineConfig,
   loadEnv,
@@ -17,26 +18,21 @@ export default ({ mode }: UserConfig): UserConfigExport => {
       chunkSizeWarningLimit: 1024 * 1024,
       rollupOptions: {
         treeshake: true,
-        maxParallelFileReads: 4,
+        maxParallelFileOps: 4,
         output: {
           manualChunks: {
             lodash: ['lodash'],
             classnames: ['classnames'],
-            runtime: ['react', 'react-is'],
-            'runtime-dom': ['react-dom'],
-
-            ai: ['@tensorflow/tfjs',
+            tensorflow: [
+              '@tensorflow/tfjs',
               '@tensorflow/tfjs-backend-cpu',
               '@tensorflow/tfjs-backend-webgl',
               '@tensorflow/tfjs-core',
-              '@tensorflow/tfjs-node'],
-            models: [
               '@tensorflow-models/coco-ssd',
               '@tensorflow-models/posenet',
             ],
             ui: ['@mui/material', '@mui/system'],
-            moment: ['moment']
-
+            moment: ['moment'],
           },
         },
       },
@@ -45,6 +41,11 @@ export default ({ mode }: UserConfig): UserConfigExport => {
       logOverride: { 'this-is-undefined-in-esm': 'silent' }
     },
     css: {
+      preprocessorOptions: {
+        scss: {
+          loadPaths: [path.resolve(process.cwd())],
+        },
+      },
       modules: {
         generateScopedName: mode === 'development' ? '[name]__[local]___[hash:base64:5]' : '[hash:base64:8]',
         scopeBehaviour: 'local',

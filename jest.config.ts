@@ -2,6 +2,7 @@ import type { Config } from '@jest/types';
 
 // Sync object
 const config: Config.InitialOptions = {
+  cacheDirectory: '<rootDir>/.jest-cache',
   rootDir: process.cwd(),
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   transformIgnorePatterns: [],
