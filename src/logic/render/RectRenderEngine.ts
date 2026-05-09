@@ -235,6 +235,9 @@ export class RectRenderEngine extends BaseRenderEngine {
 
     private addRectLabel = (rect: IRect) => {
         const activeLabelId = LabelsSelector.getActiveLabelNameId();
+        if (activeLabelId === null) {
+            return;
+        }
         const imageData: ImageData = LabelsSelector.getActiveImageData();
         const labelRect: LabelRect = LabelUtil.createLabelRect(activeLabelId, rect);
         imageData.labelRects.push(labelRect);

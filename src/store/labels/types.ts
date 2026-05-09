@@ -96,7 +96,7 @@ export type ImageData = {
 
 export type LabelsState = {
     activeImageIndex: number;
-    activeLabelNameId: string;
+    activeLabelNameId: string | null;
     activeLabelType: LabelType;
     activeLabelId: string | null;
     highlightedLabelId: string;
@@ -125,7 +125,7 @@ interface UpdateActiveImageIndex {
 interface UpdateActiveLabelNameId {
     type: typeof Action.UPDATE_ACTIVE_LABEL_NAME_ID;
     payload: {
-        activeLabelNameId: string;
+        activeLabelNameId: string | null;
     }
 }
 

@@ -299,6 +299,9 @@ export class PolygonRenderEngine extends BaseRenderEngine {
 
     private addPolygonLabel(polygon: IPoint[]) {
         const activeLabelId = LabelsSelector.getActiveLabelNameId();
+        if (activeLabelId === null) {
+            return;
+        }
         const imageData: ImageData = LabelsSelector.getActiveImageData();
         const labelPolygon: LabelPolygon = LabelUtil.createLabelPolygon(activeLabelId, polygon);
         imageData.labelPolygons.push(labelPolygon);

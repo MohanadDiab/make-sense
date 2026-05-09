@@ -196,6 +196,11 @@ export class LineRenderEngine extends BaseRenderEngine {
         const lineOnCanvas = {start: this.lineCreationStartPoint, end: mousePositionOnCanvasSnapped}
         const lineOnImage = RenderEngineUtil.transferLineFromViewPortContentToImage(lineOnCanvas, data);
         const activeLabelId = LabelsSelector.getActiveLabelNameId();
+        if (activeLabelId === null) {
+            this.lineCreationStartPoint = null;
+            EditorActions.setViewPortActionsDisabledStatus(false);
+            return;
+        }
         const imageData: ImageData = LabelsSelector.getActiveImageData();
         const labelLine: LabelLine = {
             id: uuidv4(),

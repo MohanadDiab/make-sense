@@ -13,8 +13,16 @@ export class LabelsSelector {
         return find(labelName, {id});
     }
 
-    public static getActiveLabelNameId(): string {
-        return store.getState().labels.activeLabelNameId;
+    public static getActiveLabelNameId(): string | null {
+        const activeId = store.getState().labels.activeLabelNameId;
+        const labelNames = LabelsSelector.getLabelNames();
+        if (labelNames.length === 0) {
+            return null;
+        }
+        if (activeId && find(labelNames, { id: activeId })) {
+            return activeId;
+        }
+        return labelNames[0].id;
     }
 
     public static getActiveLabelType(): LabelType {

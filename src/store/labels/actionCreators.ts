@@ -11,7 +11,7 @@ export function updateActiveImageIndex(activeImageIndex: number): LabelsActionTy
     };
 }
 
-export function updateActiveLabelNameId(activeLabelNameId: string): LabelsActionTypes {
+export function updateActiveLabelNameId(activeLabelNameId: string | null): LabelsActionTypes {
     return {
         type: Action.UPDATE_ACTIVE_LABEL_NAME_ID,
         payload: {
